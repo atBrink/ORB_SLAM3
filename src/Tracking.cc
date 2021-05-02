@@ -2058,6 +2058,13 @@ void Tracking::Track()
         if(bOK || mState==RECENTLY_LOST)
         {
             // Update motion model
+	    if(mTime_LocalMapTrack > 1000000.0)  //Charbel
+	    {
+		mVelocityBefore = mVelocity;	
+		cv::Mat lastPos = mpLastKeyFrame->GetTranslation();
+		cout << lastPos << endl << endl;//"-------motion model updated------------" << endl << endl;
+	    }
+
             if(!mLastFrame.mTcw.empty() && !mCurrentFrame.mTcw.empty())
             {
                 cv::Mat LastTwc = cv::Mat::eye(4,4,CV_32F);
@@ -2493,6 +2500,11 @@ void Tracking::CreateInitialMapMonocular()
 
     double aux = (mCurrentFrame.mTimeStamp-mLastFrame.mTimeStamp)/(mCurrentFrame.mTimeStamp-mInitialFrame.mTimeStamp);
     phi *= aux;
+
+    if(mTime_LocalMapTrack > 1000000.0)	//Charbel
+    {
+	mFrameBeforeLast = mLastFrame;
+    }
 
     mLastFrame = Frame(mCurrentFrame);
 
@@ -3925,7 +3937,99 @@ cv::Mat Tracking::ComputeF12(KeyFrame *&pKF1, KeyFrame *&pKF2)
     return K1.t().inv()*t12x*R12*K2.inv();
 }
 
+float Tracking::EquationTen(float lastPos[3], float currentPos[3]) //Charbel
+{
+    float theta;
 
+    theta = -2*tan((currentPos[1]-lastPos[1]) / (currentPos[0]+lastPos[0]));
+    //theta = -2*tan((currentPos[1]*lastPos[2]-lastPos[1]*currentPos[2]) / (currentPos[0]*lastPos[2]+lastPos[0]*currentPos[2]));
+
+    return theta;
+}
+
+// Sebastian
+// Function written by Sebastian to correspond to equation 2 in https://doc.rero.ch/record/315821/files/11263_2011_Article_441.pdf
+cv::Mat Tracking::computePoseEstimate(float theta)
+{
+    // Vehicle Displacement rho arbitrarily set to 1
+    float rho = 1.0;
+    
+    // 3x3 Rotation matrix
+    cv::Mat Rv(3, 3, CV_32F);
+    Rv.row(0) = [cos(theta), -sin(theta), 0];
+    Rv.row(1) = [sin(theta), cos(theta), 0];
+    Rv.row(2) = [ 0,  0,  1];
+    
+    // 3x1 Translation Vector
+    cv::Mat Tv(3,1,CV_32F);
+    Tv.row(0) =  rho * cos(theta/2);
+    Tv.row(1) =  rho * sin(theta/2);
+    Tv.row(2) = 0;
+
+    // Assemble 3x4 Pose Matrix (R|t):
+    cv::Mat P(3,4, CV_32F);
+    P.row(0) = [Rv.row(0), Tv.row(0)];
+    P.row(1) = [Rv.row(1), Tv.row(1)];
+    P.row(2) = [Rv.row(2), Tv.row(2)];
+
+    return P;
+}
+
+// Sebastian
+// RANSAC algorithm to estimate the optimal pose for the given frame-pair"
+cv::Mat Tracking::computeOptimalPoseEstimate(featureCorrespondances)
+{
+    
+    std::featureCorrespondances<int> listSize; // number of correspondances
+
+    // Generate random keypoint index
+    std::random_device rd;
+    std::default_random_engine eng(rd());
+    std::uniform_int_distribution<> distr(0, listSize);
+
+    
+    // RANSAC Algorithm
+    nbrOfIterations = 1000;
+    bestFit = NULL;
+    bestFitConsensusSet = []; // saves best consensus set here
+    errThreshold = 1; // error threshold 1 pixel
+
+    for (int n = 0; n < nbrOfIterations; n++){
+        
+        cout << distr(eng); // generate random index for keypoint
+
+        keyPointFrame1 = featureCorrespondances(0, cout); // keypoint in frame 1
+        keyPointFrame2 = featureCorrespondances(1, cout); // keypoint in frame 2
+
+        currInliers = []; // empty list where we save inliers for current iteration
+
+        theta -> EquationTen(keyPointFrame1, keyPointFrame2);
+        PHypothesis -> computePoseEstimate(theta);
+
+        "Check every other keypoint for inliers/outliers, excluding the randomly selected hypothesis datapoint"
+        for (int i = 0; i < listSize-1; n++) {
+            if i != cout { // Check so point is not the one our hypothesis is based on
+            
+                tempKeyPoint1 = featureCorrespondances(0,i);
+                projectedKeyPoint2 = PHypothesis*tempKeyPoint1; // Project frame2-point by transforming frame1Point with our hypothesis
+
+                // Calculate Reprojection error between projected point and actual frame2point:
+                reprojErr = sqrt((projectedKeyPoint2(0)-keyPointFrame2(0))^2 + ...
+                    (projectedKeyPoint2(1)-keyPointFrame2(1))^2 + (projectedKeyPoint2(2)-keyPointFrame2(2))^2);
+                
+                if reprojErr < errThreshold {// if the projection is less than the predetermined threshold save it to inliers list
+                    currInliers.append(featureCorrespondances(:,i));
+                }
+            }
+        }
+
+        if len(currInliers) > len(bestFitConsesusSet){
+            bestFit = PHypothesis;
+            bestFitConsesusSet = currInliers;
+
+        } 
+    }
+}
 void Tracking::CreateNewMapPoints()
 {
     // Retrieve neighbor keyframes in covisibility graph
@@ -3935,7 +4039,7 @@ void Tracking::CreateNewMapPoints()
 
     cv::Mat Rcw1 = mpLastKeyFrame->GetRotation();
     cv::Mat Rwc1 = Rcw1.t();
-    cv::Mat tcw1 = mpLastKeyFrame->GetTranslation();
+    cv::Mat tcw1 = mpLastKeyFrame->GetTranslation(); 
     cv::Mat Tcw1(3,4,CV_32F);
     Rcw1.copyTo(Tcw1.colRange(0,3));
     tcw1.copyTo(Tcw1.col(3));

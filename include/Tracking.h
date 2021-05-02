@@ -122,6 +122,7 @@ public:
     // Current Frame
     Frame mCurrentFrame;
     Frame mLastFrame;
+    Frame mFrameBeforeLast; //Charbel
 
     cv::Mat mImGray;
 
@@ -200,6 +201,11 @@ protected:
     bool TrackReferenceKeyFrame();
     void UpdateLastFrame();
     bool TrackWithMotionModel();
+
+    float EquationTen(float lastPos[3], float currentPos[3]); //Charbel
+    cv::Mat computePoseEstimate(float theta) // Sebastian
+    cv::Mat computeOptimalPoseEstimate(featureCorrespondances) // Sebastian
+
     bool PredictStateIMU();
 
     bool Relocalization();
@@ -320,6 +326,7 @@ protected:
 
     //Motion Model
     cv::Mat mVelocity;
+    cv::Mat mVelocityBefore; //Charbel
 
     //Color order (true RGB, false BGR, ignored if grayscale)
     bool mbRGB;
