@@ -3955,10 +3955,12 @@ cv::Mat Tracking::computePoseEstimate(float theta)
     float rho = 1.0;
     
     // 3x3 Rotation matrix
-    cv::Mat Rv(3, 3, CV_32F);
-    Rv.row(0) = [cos(theta), -sin(theta), 0];
-    Rv.row(1) = [sin(theta), cos(theta), 0];
-    Rv.row(2) = [ 0,  0,  1];
+    //cv::Mat Rv(3, 3, CV_32F);
+    double m[3][3] ={{cos(theta), -sin(theta), 0},{sin(theta), cos(theta), 0},{0,  0,  1}};
+    cv::Mat Rv(3, 3, CV_32F,m);
+    //Rv.row(0) = [cos(theta), -sin(theta), 0];
+    //Rv.row(1) = [sin(theta), cos(theta), 0];
+    //Rv.row(2) = [ 0,  0,  1];
     
     // 3x1 Translation Vector
     cv::Mat Tv(3,1,CV_32F);
@@ -3968,47 +3970,53 @@ cv::Mat Tracking::computePoseEstimate(float theta)
 
     // Assemble 3x4 Pose Matrix (R|t):
     cv::Mat P(3,4, CV_32F);
-    P.row(0) = [Rv.row(0), Tv.row(0)];
-    P.row(1) = [Rv.row(1), Tv.row(1)];
-    P.row(2) = [Rv.row(2), Tv.row(2)];
+    //P.row(0) = [Rv[0][:] , Tv.row(0)];
+    //P.row(1) = [Rv.row(1), Tv.row(1)];
+    //P.row(2) = [Rv.row(2), Tv.row(2)];
+    P.col(0) = Rv.col(0);
+    P.col(1) = Rv.col(1);
+    P.col(2) = Rv.col(2);
+    P.col(3) = Tv;
 
     return P;
 }
 
 // Sebastian
 // RANSAC algorithm to estimate the optimal pose for the given frame-pair"
-cv::Mat Tracking::computeOptimalPoseEstimate(featureCorrespondances)
+cv::Mat Tracking::computeOptimalPoseEstimate()//featureCorrespondances)
 {
     
-    std::featureCorrespondances<int> listSize; // number of correspondances
-
+    //std::featureCorrespondances<int> listSize; // number of correspondances
+    std::list<int> featureCorrespondances = {1,2,3,4,5,6,7,8,9,0}; 
     // Generate random keypoint index
-    std::random_device rd;
-    std::default_random_engine eng(rd());
-    std::uniform_int_distribution<> distr(0, listSize);
-
+    //std::random_device rd;
+    //std::default_random_engine eng(rd());
+    //std::uniform_int_distribution<> distr(0, listSize);
+    srand(time(NULL));
+    
     
     // RANSAC Algorithm
-    nbrOfIterations = 1000;
-    bestFit = NULL;
-    bestFitConsensusSet = []; // saves best consensus set here
-    errThreshold = 1; // error threshold 1 pixel
+    int nbrOfIterations = 1000;
+    cv::Mat bestFit = NULL;
+    std::list<int> bestFitConsensusSet = {}; // saves best consensus set here
+    int errThreshold = 1; // error threshold 1 pixel
 
     for (int n = 0; n < nbrOfIterations; n++){
         
-        cout << distr(eng); // generate random index for keypoint
+        //cout << distr(eng); // generate random index for keypoint
+        randIdx = rand() % listSize;
 
-        keyPointFrame1 = featureCorrespondances(0, cout); // keypoint in frame 1
-        keyPointFrame2 = featureCorrespondances(1, cout); // keypoint in frame 2
+        keyPointFrame1 = featureCorrespondances(0, randIdx); // keypoint in frame 1
+        keyPointFrame2 = featureCorrespondances(1, randIdx); // keypoint in frame 2
 
         currInliers = []; // empty list where we save inliers for current iteration
 
-        theta -> EquationTen(keyPointFrame1, keyPointFrame2);
-        PHypothesis -> computePoseEstimate(theta);
+        theta = EquationTen(keyPointFrame1, keyPointFrame2);
+        PHypothesis = computePoseEstimate(theta);
 
         "Check every other keypoint for inliers/outliers, excluding the randomly selected hypothesis datapoint"
         for (int i = 0; i < listSize-1; n++) {
-            if i != cout { // Check so point is not the one our hypothesis is based on
+            if i != randIdx { // Check so point is not the one our hypothesis is based on
             
                 tempKeyPoint1 = featureCorrespondances(0,i);
                 projectedKeyPoint2 = PHypothesis*tempKeyPoint1; // Project frame2-point by transforming frame1Point with our hypothesis

@@ -51,3 +51,5 @@ cmake-build-debug/
 build.sh
 
 outputs/
+
+src/.vscode/

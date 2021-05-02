@@ -203,8 +203,8 @@ protected:
     bool TrackWithMotionModel();
 
     float EquationTen(float lastPos[3], float currentPos[3]); //Charbel
-    cv::Mat computePoseEstimate(float theta) // Sebastian
-    cv::Mat computeOptimalPoseEstimate(featureCorrespondances) // Sebastian
+    cv::Mat computePoseEstimate(float theta); // Sebastian
+    cv::Mat computeOptimalPoseEstimate();//featureCorrespondances) // Sebastian
 
     bool PredictStateIMU();
 
